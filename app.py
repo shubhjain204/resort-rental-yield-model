@@ -242,7 +242,7 @@ with st.expander("🔍 View Elasticity Curves (How sensitivity changes with leve
 
     st.markdown(
         """
-These curves show **how sensitive rental yield is at different operating levels**.
+These curves show **how sensitive rental yield is at different operating levels, elasticity is delta yield %/delta input %**.
 They reveal **non-linear risk**, especially from fixed costs.
 """
     )
@@ -271,8 +271,7 @@ They reveal **non-linear risk**, especially from fixed costs.
     st.line_chart(df_occ)
 
     st.caption(
-        "Elasticity is highest at low occupancy due to fixed costs. "
-        "As utilisation improves, sensitivity declines."
+        "Elasticity is highest at low occupancy due to fixed costs. Elasticity decrease as Occupancy % increases. "
     )
 
     # ---------------- Fixed Cost ----------------
@@ -294,8 +293,7 @@ They reveal **non-linear risk**, especially from fixed costs.
     st.line_chart(df_fix)
 
     st.caption(
-        "Fixed costs create **convex downside risk**. "
-        "Early increases hurt returns disproportionately."
+        "Elasticity increase as fixed cost increases. "
     )
 
     # ---------------- Management Fee ----------------
@@ -317,8 +315,9 @@ They reveal **non-linear risk**, especially from fixed costs.
     st.line_chart(df_fee)
 
     st.caption(
-        "Fee sensitivity is strongest when margins are thin and tapers as profitability improves."
+        "Elasticity increase as fee% increase."
     )
+
 
 
 
