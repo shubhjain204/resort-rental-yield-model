@@ -125,4 +125,71 @@ DELTA = 0.10
 def pct_change(new, base):
     return (new - base) / base * 100 if base != 0 else 0
 
-def lease(delta_C=0, delta_D=0,
+def lease(delta_C=0, delta_D=0, delta_I=0, delta_F=0):
+    rev = B * (C*(1+delta_C)) * (D*(1+delta_D)) * 12
+    budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
+    return rev / budget * 100
+
+def mgmt(delta_C=0, delta_occ=0, delta_gm=0, delta_fee=0, delta_I=0, delta_F=0):
+    rev = B * (C*(1+delta_C)) * 30 * 12 * (occupancy*(1+delta_occ))
+    margin = (gross_margin*(1+delta_gm)) - (mgmt_fee*(1+delta_fee))
+    budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
+    return (rev * margin) / budget * 100
+
+rows = [
+    ("Revenue per Day",
+     pct_change(lease(delta_C=DELTA), lease_yield),
+     pct_change(mgmt(delta_C=DELTA), mgmt_yield),
+     "Moves yield in same direction"),
+
+    ("Booking Days",
+     pct_change(lease(delta_D=DELTA), lease_yield),
+     None,
+     "Strong demand driver"),
+
+    ("Occupancy",
+     None,
+     pct_change(mgmt(delta_occ=DELTA), mgmt_yield),
+     "Strong execution driver"),
+
+    ("Gross Margin",
+     None,
+     pct_change(mgmt(delta_gm=DELTA), mgmt_yield),
+     "Very strong impact"),
+
+    ("Management Fee",
+     None,
+     pct_change(mgmt(delta_fee=DELTA), mgmt_yield),
+     "Higher fee reduces yield"),
+
+    ("Budget per Dome",
+     pct_change(lease(delta_I=DELTA), lease_yield),
+     pct_change(mgmt(delta_I=DELTA), mgmt_yield),
+     "Capital heavy – lowers returns"),
+
+    ("Recapex %",
+     pct_change(lease(delta_F=DELTA), lease_yield),
+     pct_change(mgmt(delta_F=DELTA), mgmt_yield),
+     "Gradual drag on returns")
+]
+
+df = pd.DataFrame(rows, columns=[
+    "Input",
+    "% Change in Yield – Lease (+10%)",
+    "% Change in Yield – Management (+10%)",
+    "Relationship (Plain Language)"
+])
+
+df["% Change in Yield – Lease (+10%)"] = df["% Change in Yield – Lease (+10%)"].apply(
+    lambda x: "—" if x is None else f"{x:+.1f}%"
+)
+df["% Change in Yield – Management (+10%)"] = df["% Change in Yield – Management (+10%)"].apply(
+    lambda x: "—" if x is None else f"{x:+.1f}%"
+)
+
+st.dataframe(df, use_container_width=True)
+
+st.caption(
+    "Note: These are elasticities around current assumptions. "
+    "They show relative sensitivity, not absolute forecasts."
+)
