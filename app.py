@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 
 # -------------------------------------------------
 # Page Config
@@ -49,7 +48,7 @@ lease_revenue = B * C * D * 12
 lease_yield = lease_revenue / Total_Budget * 100
 
 # -------------------------------------------------
-# Management Model (with fixed + variable costs)
+# Management Model
 # -------------------------------------------------
 mgmt_revenue = B * C * 30 * 12 * occupancy
 mgmt_fee_amt = mgmt_revenue * mgmt_fee
@@ -84,11 +83,6 @@ with c2:
         """,
         unsafe_allow_html=True
     )
-    with st.expander("How is this calculated?"):
-        st.markdown(
-            f"`{B} × {C} × {D} × 12 = ₹ {format_inr(lease_revenue)}`  \n"
-            f"`Yield = {format_inr(lease_revenue)} ÷ {format_inr(Total_Budget)}`"
-        )
 
 with c3:
     st.markdown(
@@ -101,21 +95,9 @@ with c3:
         """,
         unsafe_allow_html=True
     )
-    with st.expander("How is this calculated?"):
-        st.markdown(
-            f"""
-Revenue = `{format_inr(mgmt_revenue)}`  
-Mgmt Fee = `{format_inr(mgmt_fee_amt)}`  
-Variable Cost = `{format_inr(variable_cost_amt)}`  
-Fixed Cost = `{format_inr(fixed_cost_amt)}`  
-
-Net Profit = `Revenue − All Costs`  
-Yield = `{format_inr(net_profit)} ÷ {format_inr(Total_Budget)}`
-"""
-        )
 
 # -------------------------------------------------
-# Sensitivity + Elasticity (INLINE)
+# Sensitivity + Inline Elasticity
 # -------------------------------------------------
 st.divider()
 st.markdown("## 🔥 Sensitivity Summary")
@@ -126,69 +108,68 @@ DELTA_SMALL = 0.01
 def pct_change(new, base):
     return (new - base) / base * 100 if base != 0 else 0
 
-def lease(delta_C=0, delta_D=0, delta_I=0, delta_F=0):
-    rev = B * (C*(1+delta_C)) * (D*(1+delta_D)) * 12
-    budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
-    return rev / budget * 100
-
-def mgmt(delta_C=0, delta_occ=0, delta_fee=0, delta_var=0, delta_fix=0, delta_I=0, delta_F=0):
-    rev = B * (C*(1+delta_C)) * 30 * 12 * (occupancy*(1+delta_occ))
-    fee_cost = rev * (mgmt_fee*(1+delta_fee))
-    var_cost = rev * (variable_cost*(1+delta_var))
-    fixed_cost = (fixed_cost_per_dome*(1+delta_fix)) * B * 12
+def mgmt(delta_occ=0, delta_fee=0, delta_var=0, delta_fix=0):
+    rev = B * C * 30 * 12 * (occupancy * (1 + delta_occ))
+    fee_cost = rev * (mgmt_fee * (1 + delta_fee))
+    var_cost = rev * (variable_cost * (1 + delta_var))
+    fixed_cost = fixed_cost_per_dome * (1 + delta_fix) * B * 12
     profit = rev - fee_cost - var_cost - fixed_cost
-    budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
-    return profit / budget * 100
+    return profit / Total_Budget * 100
 
 def elasticity(new, base):
     return (new - base) / base / DELTA_SMALL if base != 0 else 0
 
-rows = [
-    ("Occupancy", "Execution driver"),
-    ("Management Fee %", "Profit drag"),
-    ("Variable Cost %", "Operating efficiency"),
-    ("Fixed Cost / Dome", "Downside convexity"),
+drivers = [
+    ("Occupancy", "Execution driver", "occ"),
+    ("Management Fee %", "Profit drag", "fee"),
+    ("Variable Cost %", "Operating efficiency", "var"),
+    ("Fixed Cost / Dome", "Downside convexity", "fix"),
 ]
 
-for name, meaning in rows:
+for name, meaning, key in drivers:
 
     c1, c2, c3, c4 = st.columns([2.5, 2, 3, 1])
     c1.markdown(f"**{name}**")
-    c2.markdown(
-        f"{pct_change(mgmt(delta_occ=DELTA if name=='Occupancy' else 0,"
-        f"delta_fee=DELTA if name=='Management Fee %' else 0,"
-        f"delta_var=DELTA if name=='Variable Cost %' else 0,"
-        f"delta_fix=DELTA if name=='Fixed Cost / Dome' else 0), mgmt_yield):+.1f}%"
-    )
+
+    if key == "occ":
+        sens = pct_change(mgmt(delta_occ=DELTA), mgmt_yield)
+    elif key == "fee":
+        sens = pct_change(mgmt(delta_fee=DELTA), mgmt_yield)
+    elif key == "var":
+        sens = pct_change(mgmt(delta_var=DELTA), mgmt_yield)
+    else:
+        sens = pct_change(mgmt(delta_fix=DELTA), mgmt_yield)
+
+    c2.markdown(f"{sens:+.1f}%")
     c3.markdown(meaning)
 
     show = c4.button("🔍", key=name)
 
     if show:
-        if name == "Occupancy":
-            xs = [x/100 for x in range(20, 101, 5)]
+        if key == "occ":
+            xs = [x / 100 for x in range(20, 101, 5)]
             ys = [elasticity(mgmt(delta_occ=DELTA_SMALL), mgmt_yield)] * len(xs)
-            st.line_chart({"Elasticity": ys}, x=[int(x*100) for x in xs])
+            st.line_chart({"Elasticity": ys}, x=[int(x * 100) for x in xs])
 
-        elif name == "Management Fee %":
-            xs = [x/100 for x in range(5, 41, 5)]
+        elif key == "fee":
+            xs = [x / 100 for x in range(5, 41, 5)]
             ys = [elasticity(mgmt(delta_fee=DELTA_SMALL), mgmt_yield)] * len(xs)
-            st.line_chart({"Elasticity": ys}, x=[int(x*100) for x in xs])
+            st.line_chart({"Elasticity": ys}, x=[int(x * 100) for x in xs])
 
-        elif name == "Variable Cost %":
-            xs = [x/100 for x in range(5, 31, 5)]
+        elif key == "var":
+            xs = [x / 100 for x in range(5, 31, 5)]
             ys = [elasticity(mgmt(delta_var=DELTA_SMALL), mgmt_yield)] * len(xs)
-            st.line_chart({"Elasticity": ys}, x=[int(x*100) for x in xs])
+            st.line_chart({"Elasticity": ys}, x=[int(x * 100) for x in xs])
 
-        elif name == "Fixed Cost / Dome":
+        else:
             xs = list(range(5_000, 40_001, 5_000))
             ys = [elasticity(mgmt(delta_fix=DELTA_SMALL), mgmt_yield)] * len(xs)
-            st.line_chart({"Elasticity": ys}, x=[int(x/1000) for x in xs])
+            st.line_chart({"Elasticity": ys}, x=[int(x / 1000) for x in xs])
 
         st.caption("Elasticity = % change in yield for a 1% change in this input")
         st.divider()
 
 st.caption(
-    "Sensitivities and elasticities are local to the current assumptions. "
-    "They explain risk concentration, not forecasts."
+    "Sensitivities and elasticities are local to current assumptions and highlight "
+    "where risk concentrates. They are explanatory, not forecasts."
 )
