@@ -41,42 +41,94 @@ net_margin = gross_margin - mgmt_fee
 Total_Budget = I * B * (1 + F)
 
 # -------------------------------------------------
-# Base Yields
+# Base Calculations
 # -------------------------------------------------
-lease_yield = (B * C * D * 12) / Total_Budget * 100
-mgmt_yield = (B * C * 30 * 12 * occupancy * net_margin) / Total_Budget * 100
+lease_revenue = B * C * D * 12
+lease_yield = lease_revenue / Total_Budget * 100
+
+mgmt_revenue = B * C * 30 * 12 * occupancy
+net_profit = mgmt_revenue * net_margin
+mgmt_yield = net_profit / Total_Budget * 100
 
 # -------------------------------------------------
-# Yield Cards (unchanged)
+# Conditional Formatting
 # -------------------------------------------------
 lease_bg = "#e6f4ea" if lease_yield > mgmt_yield else "#f4f4f4"
 mgmt_bg = "#e6f4ea" if mgmt_yield > lease_yield else "#f4f4f4"
 
+# -------------------------------------------------
+# Yield Cards (RESTORED & STABLE)
+# -------------------------------------------------
 st.markdown("## 📌 Contract Comparison")
 
 c1, c2, c3 = st.columns([1, 2, 2])
 c1.metric("Total Project Cost (₹)", format_inr(Total_Budget))
 
+# Lease Card
 with c2:
     st.markdown(
-        f"<div style='background:{lease_bg}; padding:18px; border-radius:12px'>"
-        f"<h4>📄 Lease Contract</h4><h2>{lease_yield:.2f}%</h2>"
-        f"</div>", unsafe_allow_html=True
+        f"""
+        <div style="background:{lease_bg}; padding:18px; border-radius:12px">
+        <h4>📄 Lease Contract</h4>
+        <h2>{lease_yield:.2f}%</h2>
+        <p><b>Annual Rent:</b> ₹ {format_inr(lease_revenue)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
+    with st.expander("How is this calculated?"):
+        st.markdown(
+            f"""
+**Annual Rent**  
+`{B} × {C} × {D} × 12 = ₹ {format_inr(lease_revenue)}`
+
+**Total Project Cost**  
+`{B} × {format_inr(I)} × (1 + {int(F*100)}%) = ₹ {format_inr(Total_Budget)}`
+
+**Rental Yield**  
+`{format_inr(lease_revenue)} ÷ {format_inr(Total_Budget)} = {lease_yield:.2f}%`
+"""
+        )
+
+# Management Card
 with c3:
     st.markdown(
-        f"<div style='background:{mgmt_bg}; padding:18px; border-radius:12px'>"
-        f"<h4>🏨 Management Contract</h4><h2>{mgmt_yield:.2f}%</h2>"
-        f"</div>", unsafe_allow_html=True
+        f"""
+        <div style="background:{mgmt_bg}; padding:18px; border-radius:12px">
+        <h4>🏨 Management Contract</h4>
+        <h2>{mgmt_yield:.2f}%</h2>
+        <p><b>Net Annual Profit:</b> ₹ {format_inr(net_profit)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
+
+    with st.expander("How is this calculated?"):
+        st.markdown(
+            f"""
+**Annual Revenue**  
+`{B} × {C} × 30 × 12 × {int(occupancy*100)}% = ₹ {format_inr(mgmt_revenue)}`
+
+**Gross Margin**  
+`{int(gross_margin*100)}%`
+
+**Management Fee**  
+`{int(mgmt_fee*100)}%`
+
+**Net Profit**  
+`₹ {format_inr(mgmt_revenue)} × {int(net_margin*100)}% = ₹ {format_inr(net_profit)}`
+
+**Rental Yield**  
+`{format_inr(net_profit)} ÷ {format_inr(Total_Budget)} = {mgmt_yield:.2f}%`
+"""
+        )
 
 # -------------------------------------------------
 # 🔥 Sensitivity Summary Table
 # -------------------------------------------------
 st.divider()
-st.markdown("## 🔥 Sensitivity Summary (Impact on Rental Yield)")
-st.caption("Δ shows change in rental yield (percentage points) for a +10% change in input.")
+st.markdown("## 🔥 Sensitivity Summary (What Impacts Rental Yield)")
 
 DELTA = 0.10
 
@@ -85,48 +137,54 @@ def lease(delta_C=0, delta_D=0, delta_I=0, delta_F=0):
     budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
     return rev / budget * 100
 
-def mgmt(delta_C=0, delta_occ=0, delta_margin=0, delta_I=0, delta_F=0):
+def mgmt(delta_C=0, delta_occ=0, delta_gm=0, delta_fee=0, delta_I=0, delta_F=0):
     rev = B * (C*(1+delta_C)) * 30 * 12 * (occupancy*(1+delta_occ))
+    margin = (gross_margin*(1+delta_gm)) - (mgmt_fee*(1+delta_fee))
     budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
-    return (rev * (net_margin*(1+delta_margin))) / budget * 100
+    return (rev * margin) / budget * 100
 
-data = [
-    ("Revenue / Day", 
+rows = [
+    ("Revenue per Day",
      lease(delta_C=DELTA) - lease_yield,
      mgmt(delta_C=DELTA) - mgmt_yield,
-     "Direct & proportional (pricing power)"),
+     "Moves yield in same direction, moderate impact"),
 
     ("Booking Days",
      lease(delta_D=DELTA) - lease_yield,
      None,
-     "Direct & proportional (demand-driven)"),
+     "Moves yield in same direction, strong impact"),
 
     ("Occupancy",
      None,
      mgmt(delta_occ=DELTA) - mgmt_yield,
-     "Direct & proportional (execution-driven)"),
+     "Moves yield in same direction, strong impact"),
 
-    ("Net Margin",
+    ("Gross Margin",
      None,
-     mgmt(delta_margin=DELTA) - mgmt_yield,
-     "Amplified (margin effect)"),
+     mgmt(delta_gm=DELTA) - mgmt_yield,
+     "Strong impact – efficiency matters a lot"),
+
+    ("Management Fee",
+     None,
+     mgmt(delta_fee=DELTA) - mgmt_yield,
+     "Reduces yield – higher fee lowers returns"),
 
     ("Budget per Dome",
      lease(delta_I=DELTA) - lease_yield,
      mgmt(delta_I=DELTA) - mgmt_yield,
-     "Inverse & dampening (capital intensity)"),
+     "Reduces yield – capital heavy"),
 
     ("Recapex %",
      lease(delta_F=DELTA) - lease_yield,
      mgmt(delta_F=DELTA) - mgmt_yield,
-     "Inverse & dampening (long-term cost drag)")
+     "Reduces yield gradually")
 ]
 
-df = pd.DataFrame(data, columns=[
+df = pd.DataFrame(rows, columns=[
     "Input",
     "Δ Yield – Lease (+10%)",
     "Δ Yield – Management (+10%)",
-    "Relationship Type"
+    "Relationship (Plain Language)"
 ])
 
 df["Δ Yield – Lease (+10%)"] = df["Δ Yield – Lease (+10%)"].apply(
@@ -138,15 +196,7 @@ df["Δ Yield – Management (+10%)"] = df["Δ Yield – Management (+10%)"].appl
 
 st.dataframe(df, use_container_width=True)
 
-st.info(
-    "💡 **How to read this table:**\n"
-    "- Larger absolute Δ means higher sensitivity\n"
-    "- Direct relationships scale predictably\n"
-    "- Margin variables amplify upside & downside\n"
-    "- Capital variables reduce yield gradually"
-)
-
 st.caption(
-    "Note: Sensitivities are local (±10%) around current assumptions. "
-    "They indicate relative importance, not forecasts."
+    "Note: Sensitivities show how much rental yield changes for a ±10% change in each input, "
+    "based on current assumptions."
 )
