@@ -208,8 +208,6 @@ df["% Change in Yield – Management (+10%)"] = df["% Change in Yield – Manage
 
 st.dataframe(df, use_container_width=True)
 
-st.caption(
-    "Note: Fixed costs introduce true non-linearity. "
 )
 
 def mgmt_yield_at(
@@ -308,6 +306,7 @@ They reveal **non-linear risk**.
     st.caption(
         "Elasticity increase as fee% increase."
     )
+
 
 
 
