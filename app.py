@@ -265,18 +265,70 @@ Useful to understand **non-linear risk**, not for forecasting.
         "As occupancy improves, sensitivity reduces."
     )
 
-    # -------------------------------------------------
-    # Fixed Cost Elasticity
-    # -------------------------------------------------
-    st.markdown("### Fixed Cost per Dome Elasticity (Management Contract)")
+def mgmt_yield_at(
+    occ,
+    fee,
+    var_cost,
+    fixed_cost_pm
+):
+    revenue = B * C * 30 * 12 * occ
+    fee_amt = revenue * fee
+    var_amt = revenue * var_cost
+    fixed_amt = fixed_cost_pm * B * 12
+    profit = revenue - fee_amt - var_amt - fixed_amt
+    return profit / Total_Budget * 100
+# -------------------------------------------------
+# 🔍 Elasticity Curves (Level-Specific, Optional)
+# -------------------------------------------------
+st.divider()
+
+with st.expander("🔍 View Elasticity Curves (How sensitivity changes with levels)"):
+
+    st.markdown(
+        """
+These curves show **how sensitive rental yield is at different operating levels**.
+They reveal **non-linear risk**, especially from fixed costs.
+"""
+    )
+
+    DELTA_SMALL = 0.01  # 1% shock
+
+    def elasticity(base, bumped):
+        return (bumped - base) / base / DELTA_SMALL if base != 0 else 0
+
+    # ---------------- Occupancy ----------------
+    st.markdown("### Occupancy Elasticity (Management Contract)")
+
+    occ_levels = [x / 100 for x in range(20, 101, 5)]
+    occ_elast = []
+
+    for o in occ_levels:
+        base = mgmt_yield_at(o, mgmt_fee, variable_cost, fixed_cost_per_dome)
+        bumped = mgmt_yield_at(o * (1 + DELTA_SMALL), mgmt_fee, variable_cost, fixed_cost_per_dome)
+        occ_elast.append(elasticity(base, bumped))
+
+    df_occ = pd.DataFrame({
+        "Occupancy (%)": [int(o * 100) for o in occ_levels],
+        "Elasticity": occ_elast
+    }).set_index("Occupancy (%)")
+
+    st.line_chart(df_occ)
+
+    st.caption(
+        "Elasticity is highest at low occupancy due to fixed costs. "
+        "As utilisation improves, sensitivity declines."
+    )
+
+    # ---------------- Fixed Cost ----------------
+    st.markdown("### Fixed Cost Elasticity (Management Contract)")
 
     fix_levels = list(range(5_000, 40_001, 5_000))
     fix_elast = []
 
     for f in fix_levels:
-        base_yield = mgmt_yield
-        new_yield = mgmt(delta_fix=DELTA_SMALL)
-        fix_elast.append(elasticity(new_yield, base_yield))
+        base = mgmt_yield_at(occupancy, mgmt_fee, variable_cost, f)
+        bumped = mgmt_yield_at(occupancy, mgmt_fee, variable_cost, f * (1 + DELTA_SMALL))
+        fix_elast.append(elasticity(base, bumped))
 
     df_fix = pd.DataFrame({
         "Fixed Cost / Dome / Month (₹)": fix_levels,
@@ -287,21 +339,19 @@ Useful to understand **non-linear risk**, not for forecasting.
 
     st.caption(
         "Fixed costs create **convex downside risk**. "
-        "Early increases hurt returns more than later increases."
+        "Early increases hurt returns disproportionately."
     )
 
-    # -------------------------------------------------
-    # Management Fee Elasticity
-    # -------------------------------------------------
+    # ---------------- Management Fee ----------------
     st.markdown("### Management Fee Elasticity (Management Contract)")
 
     fee_levels = [x / 100 for x in range(5, 41, 5)]
     fee_elast = []
 
     for f in fee_levels:
-        base_yield = mgmt_yield
-        new_yield = mgmt(delta_fee=DELTA_SMALL)
-        fee_elast.append(elasticity(new_yield, base_yield))
+        base = mgmt_yield_at(occupancy, f, variable_cost, fixed_cost_per_dome)
+        bumped = mgmt_yield_at(occupancy, f * (1 + DELTA_SMALL), variable_cost, fixed_cost_per_dome)
+        fee_elast.append(elasticity(base, bumped))
 
     df_fee = pd.DataFrame({
         "Management Fee (%)": [int(f * 100) for f in fee_levels],
@@ -311,7 +361,7 @@ Useful to understand **non-linear risk**, not for forecasting.
     st.line_chart(df_fee)
 
     st.caption(
-        "Management fees are most damaging when margins are thin. "
-        "As profitability improves, the relative impact tapers."
+        "Fee sensitivity is strongest when margins are thin and tapers as profitability improves."
     )
+
 
