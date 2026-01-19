@@ -161,36 +161,37 @@ def mgmt(delta_C=0, delta_occ=0, delta_fee=0, delta_var=0, delta_fix=0, delta_I=
 rows = [
     ("Revenue per Day",
      pct_change(lease(delta_C=DELTA), lease_yield),
-     pct_change(mgmt(delta_C=DELTA), mgmt_yield),
+     pct_change(mgmt(delta_C=DELTA), mgmt_yield)),
 
     ("Booking Days",
      pct_change(lease(delta_D=DELTA), lease_yield),
-     None,
+     None),
 
     ("Occupancy",
      None,
-     pct_change(mgmt(delta_occ=DELTA), mgmt_yield),
+     pct_change(mgmt(delta_occ=DELTA), mgmt_yield)),
 
     ("Management Fee %",
      None,
-     pct_change(mgmt(delta_fee=DELTA), mgmt_yield),
+     pct_change(mgmt(delta_fee=DELTA), mgmt_yield)),
 
     ("Variable Cost %",
      None,
-     pct_change(mgmt(delta_var=DELTA), mgmt_yield),
+     pct_change(mgmt(delta_var=DELTA), mgmt_yield)),
 
     ("Fixed Cost / Dome",
      None,
-     pct_change(mgmt(delta_fix=DELTA), mgmt_yield),
+     pct_change(mgmt(delta_fix=DELTA), mgmt_yield)),
 
     ("Budget per Dome",
      pct_change(lease(delta_I=DELTA), lease_yield),
-     pct_change(mgmt(delta_I=DELTA), mgmt_yield),
+     pct_change(mgmt(delta_I=DELTA), mgmt_yield)),
 
     ("Recapex %",
      pct_change(lease(delta_F=DELTA), lease_yield),
-     pct_change(mgmt(delta_F=DELTA), mgmt_yield))
+     pct_change(mgmt(delta_F=DELTA), mgmt_yield)),
 ]
+
 
 df = pd.DataFrame(rows, columns=[
     "Input",
@@ -307,6 +308,7 @@ They reveal **non-linear risk**.
     st.caption(
         "Elasticity increase as fee% increase."
     )
+
 
 
 
