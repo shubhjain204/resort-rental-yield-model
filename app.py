@@ -206,7 +206,7 @@ df["% Change in Yield – Management (+10%)"] = df["% Change in Yield – Manage
     lambda x: "—" if x is None else f"{x:+.1f}%"
 )
 
-st.dataframe(df, use_container_width=True)
+st.dataframe(df, use_container_width=True))
 
 )
 
@@ -306,6 +306,7 @@ They reveal **non-linear risk**.
     st.caption(
         "Elasticity increase as fee% increase."
     )
+
 
 
 
