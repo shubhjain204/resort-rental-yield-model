@@ -2,17 +2,16 @@ import streamlit as st
 import pandas as pd
 
 # -------------------------------------------------
-# Page config
+# Page Config
 # -------------------------------------------------
-st.set_page_config(page_title="Resort Yield Model", layout="wide")
-st.title("🏕️ Resort Rental Yield – Lease vs Management")
+st.set_page_config(page_title="Resort Yield Comparison", layout="wide")
+st.title("🏕️ Resort Investment Model – Lease vs Management Contract")
 
 # -------------------------------------------------
-# Helpers
+# Indian Number Formatter
 # -------------------------------------------------
 def format_inr(n):
-    n = int(round(n))
-    s = str(n)
+    s = str(int(round(n)))
     if len(s) <= 3:
         return s
     last3 = s[-3:]
@@ -20,167 +19,176 @@ def format_inr(n):
     rest = ",".join([rest[max(i-2, 0):i] for i in range(len(rest), 0, -2)][::-1])
     return rest + "," + last3
 
-def pct_change(new, base):
-    return (new - base) / base * 100 if base != 0 else 0
-
 # -------------------------------------------------
-# Sidebar inputs
+# Sidebar – Inputs
 # -------------------------------------------------
-st.sidebar.header("Common Inputs")
+st.sidebar.header("Common Asset Assumptions")
 
 B = st.sidebar.slider("Number of Domes", 1, 30, 5)
 C = st.sidebar.slider("Revenue per Day per Dome (₹)", 1000, 10000, 5250, step=250)
-I = st.sidebar.slider("Budget per Dome (₹)", 5_00_000, 40_00_000, 20_00_000, step=50_000)
 F = st.sidebar.slider("Recapex Provision (%)", 0, 60, 30) / 100
+I = st.sidebar.slider("Budget per Dome (₹)", 5_00_000, 40_00_000, 20_00_000, step=50_000)
 
-st.sidebar.header("Lease Model")
+st.sidebar.header("Lease Contract Inputs")
 D = st.sidebar.slider("Booking Days / Month", 1, 30, 5)
 
-st.sidebar.header("Management Model")
+st.sidebar.header("Management Contract Inputs")
 occupancy = st.sidebar.slider("Occupancy (%)", 10, 100, 50) / 100
 mgmt_fee = st.sidebar.slider("Management Fee (% of Revenue)", 5, 40, 20) / 100
 variable_cost = st.sidebar.slider("Variable Cost (% of Revenue)", 5, 30, 10) / 100
-fixed_cost_pm = st.sidebar.slider(
+fixed_cost_per_dome = st.sidebar.slider(
     "Fixed Cost per Dome / Month (₹)", 5_000, 40_000, 15_000, step=1_000
 )
 
-# -------------------------------------------------
-# Core calculations
-# -------------------------------------------------
-total_budget = I * B * (1 + F)
+Total_Budget = I * B * (1 + F)
 
-# Lease
+# -------------------------------------------------
+# Lease Model
+# -------------------------------------------------
 lease_revenue = B * C * D * 12
-lease_yield = lease_revenue / total_budget * 100
+lease_yield = lease_revenue / Total_Budget * 100
 
-# Management
+# -------------------------------------------------
+# Management Model (with fixed + variable costs)
+# -------------------------------------------------
 mgmt_revenue = B * C * 30 * 12 * occupancy
 mgmt_fee_amt = mgmt_revenue * mgmt_fee
-var_cost_amt = mgmt_revenue * variable_cost
-fixed_cost_amt = fixed_cost_pm * B * 12
+variable_cost_amt = mgmt_revenue * variable_cost
+fixed_cost_amt = fixed_cost_per_dome * B * 12
 
-net_profit = mgmt_revenue - mgmt_fee_amt - var_cost_amt - fixed_cost_amt
-mgmt_yield = net_profit / total_budget * 100
+net_profit = mgmt_revenue - mgmt_fee_amt - variable_cost_amt - fixed_cost_amt
+mgmt_yield = net_profit / Total_Budget * 100
 
 # -------------------------------------------------
-# Cards
+# Conditional Formatting
+# -------------------------------------------------
+lease_bg = "#e6f4ea" if lease_yield > mgmt_yield else "#f4f4f4"
+mgmt_bg = "#e6f4ea" if mgmt_yield > lease_yield else "#f4f4f4"
+
+# -------------------------------------------------
+# Yield Cards
 # -------------------------------------------------
 st.markdown("## 📌 Contract Comparison")
 
 c1, c2, c3 = st.columns([1, 2, 2])
-c1.metric("Total Project Cost (₹)", format_inr(total_budget))
+c1.metric("Total Project Cost (₹)", format_inr(Total_Budget))
 
 with c2:
-    st.metric("Lease Yield", f"{lease_yield:.2f}%")
+    st.markdown(
+        f"""
+        <div style="background:{lease_bg}; padding:18px; border-radius:12px">
+        <h4>📄 Lease Contract</h4>
+        <h2>{lease_yield:.2f}%</h2>
+        <p><b>Annual Rent:</b> ₹ {format_inr(lease_revenue)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     with st.expander("How is this calculated?"):
         st.markdown(
-            f"""
-Annual Rent  
-`{B} × {C} × {D} × 12 = ₹ {format_inr(lease_revenue)}`
-
-Rental Yield  
-`₹ {format_inr(lease_revenue)} ÷ ₹ {format_inr(total_budget)}`
-"""
+            f"`{B} × {C} × {D} × 12 = ₹ {format_inr(lease_revenue)}`  \n"
+            f"`Yield = {format_inr(lease_revenue)} ÷ {format_inr(Total_Budget)}`"
         )
 
 with c3:
-    st.metric("Management Yield", f"{mgmt_yield:.2f}%")
+    st.markdown(
+        f"""
+        <div style="background:{mgmt_bg}; padding:18px; border-radius:12px">
+        <h4>🏨 Management Contract</h4>
+        <h2>{mgmt_yield:.2f}%</h2>
+        <p><b>Net Annual Profit:</b> ₹ {format_inr(net_profit)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     with st.expander("How is this calculated?"):
         st.markdown(
             f"""
-Annual Revenue  
-`₹ {format_inr(mgmt_revenue)}`
+Revenue = `{format_inr(mgmt_revenue)}`  
+Mgmt Fee = `{format_inr(mgmt_fee_amt)}`  
+Variable Cost = `{format_inr(variable_cost_amt)}`  
+Fixed Cost = `{format_inr(fixed_cost_amt)}`  
 
-Costs  
-• Management Fee: ₹ {format_inr(mgmt_fee_amt)}  
-• Variable Cost: ₹ {format_inr(var_cost_amt)}  
-• Fixed Cost: ₹ {format_inr(fixed_cost_amt)}
-
-Net Profit  
-`₹ {format_inr(net_profit)}`
-
-Rental Yield  
-`₹ {format_inr(net_profit)} ÷ ₹ {format_inr(total_budget)}`
+Net Profit = `Revenue − All Costs`  
+Yield = `{format_inr(net_profit)} ÷ {format_inr(Total_Budget)}`
 """
         )
 
 # -------------------------------------------------
-# Sensitivity summary
+# Sensitivity + Elasticity (INLINE)
 # -------------------------------------------------
 st.divider()
-st.markdown("## 🔥 Sensitivity Summary (% change in yield for +10% input change)")
+st.markdown("## 🔥 Sensitivity Summary")
 
 DELTA = 0.10
 DELTA_SMALL = 0.01
 
-def mgmt_yield_with(delta_occ=0, delta_fee=0, delta_fix=0):
-    rev = B * C * 30 * 12 * (occupancy * (1 + delta_occ))
-    fee = rev * (mgmt_fee * (1 + delta_fee))
-    var = rev * variable_cost
-    fixed = fixed_cost_pm * (1 + delta_fix) * B * 12
-    profit = rev - fee - var - fixed
-    return profit / total_budget * 100
+def pct_change(new, base):
+    return (new - base) / base * 100 if base != 0 else 0
+
+def lease(delta_C=0, delta_D=0, delta_I=0, delta_F=0):
+    rev = B * (C*(1+delta_C)) * (D*(1+delta_D)) * 12
+    budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
+    return rev / budget * 100
+
+def mgmt(delta_C=0, delta_occ=0, delta_fee=0, delta_var=0, delta_fix=0, delta_I=0, delta_F=0):
+    rev = B * (C*(1+delta_C)) * 30 * 12 * (occupancy*(1+delta_occ))
+    fee_cost = rev * (mgmt_fee*(1+delta_fee))
+    var_cost = rev * (variable_cost*(1+delta_var))
+    fixed_cost = (fixed_cost_per_dome*(1+delta_fix)) * B * 12
+    profit = rev - fee_cost - var_cost - fixed_cost
+    budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
+    return profit / budget * 100
+
+def elasticity(new, base):
+    return (new - base) / base / DELTA_SMALL if base != 0 else 0
 
 rows = [
-    ("Occupancy", pct_change(mgmt_yield_with(delta_occ=DELTA), mgmt_yield), "Execution risk"),
-    ("Management Fee %", pct_change(mgmt_yield_with(delta_fee=DELTA), mgmt_yield), "Fee drag"),
-    ("Fixed Cost / Dome", pct_change(mgmt_yield_with(delta_fix=DELTA), mgmt_yield), "Downside convexity"),
+    ("Occupancy", "Execution driver"),
+    ("Management Fee %", "Profit drag"),
+    ("Variable Cost %", "Operating efficiency"),
+    ("Fixed Cost / Dome", "Downside convexity"),
 ]
 
-for name, sens, meaning in rows:
+for name, meaning in rows:
 
     c1, c2, c3, c4 = st.columns([2.5, 2, 3, 1])
     c1.markdown(f"**{name}**")
-    c2.markdown(f"{sens:+.1f}%")
+    c2.markdown(
+        f"{pct_change(mgmt(delta_occ=DELTA if name=='Occupancy' else 0,"
+        f"delta_fee=DELTA if name=='Management Fee %' else 0,"
+        f"delta_var=DELTA if name=='Variable Cost %' else 0,"
+        f"delta_fix=DELTA if name=='Fixed Cost / Dome' else 0), mgmt_yield):+.1f}%"
+    )
     c3.markdown(meaning)
 
     show = c4.button("🔍", key=name)
 
     if show:
         if name == "Occupancy":
-            levels = [x / 100 for x in range(20, 101, 5)]
-            elast = []
-            for l in levels:
-                base = mgmt_yield
-                new = mgmt_yield_with(delta_occ=DELTA_SMALL)
-                elast.append((new - base) / base / DELTA_SMALL)
-
-            df = pd.DataFrame({
-                "Occupancy (%)": [int(l * 100) for l in levels],
-                "Elasticity": elast
-            }).set_index("Occupancy (%)")
-
-            st.line_chart(df)
+            xs = [x/100 for x in range(20, 101, 5)]
+            ys = [elasticity(mgmt(delta_occ=DELTA_SMALL), mgmt_yield)] * len(xs)
+            st.line_chart({"Elasticity": ys}, x=[int(x*100) for x in xs])
 
         elif name == "Management Fee %":
-            levels = [x / 100 for x in range(5, 41, 5)]
-            elast = []
-            for l in levels:
-                base = mgmt_yield
-                new = mgmt_yield_with(delta_fee=DELTA_SMALL)
-                elast.append((new - base) / base / DELTA_SMALL)
+            xs = [x/100 for x in range(5, 41, 5)]
+            ys = [elasticity(mgmt(delta_fee=DELTA_SMALL), mgmt_yield)] * len(xs)
+            st.line_chart({"Elasticity": ys}, x=[int(x*100) for x in xs])
 
-            df = pd.DataFrame({
-                "Mgmt Fee (%)": [int(l * 100) for l in levels],
-                "Elasticity": elast
-            }).set_index("Mgmt Fee (%)")
+        elif name == "Variable Cost %":
+            xs = [x/100 for x in range(5, 31, 5)]
+            ys = [elasticity(mgmt(delta_var=DELTA_SMALL), mgmt_yield)] * len(xs)
+            st.line_chart({"Elasticity": ys}, x=[int(x*100) for x in xs])
 
-            st.line_chart(df)
+        elif name == "Fixed Cost / Dome":
+            xs = list(range(5_000, 40_001, 5_000))
+            ys = [elasticity(mgmt(delta_fix=DELTA_SMALL), mgmt_yield)] * len(xs)
+            st.line_chart({"Elasticity": ys}, x=[int(x/1000) for x in xs])
 
-        else:
-            levels = list(range(5_000, 40_001, 5_000))
-            elast = []
-            for l in levels:
-                base = mgmt_yield
-                new = mgmt_yield_with(delta_fix=DELTA_SMALL)
-                elast.append((new - base) / base / DELTA_SMALL)
-
-            df = pd.DataFrame({
-                "Fixed Cost / Month (₹000)": [int(l / 1000) for l in levels],
-                "Elasticity": elast
-            }).set_index("Fixed Cost / Month (₹000)")
-
-            st.line_chart(df)
-
-        st.caption("Elasticity = % change in yield for 1% change in this input")
+        st.caption("Elasticity = % change in yield for a 1% change in this input")
         st.divider()
+
+st.caption(
+    "Sensitivities and elasticities are local to the current assumptions. "
+    "They explain risk concentration, not forecasts."
+)
