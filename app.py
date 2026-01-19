@@ -162,49 +162,40 @@ rows = [
     ("Revenue per Day",
      pct_change(lease(delta_C=DELTA), lease_yield),
      pct_change(mgmt(delta_C=DELTA), mgmt_yield),
-     "Scales revenue directly"),
 
     ("Booking Days",
      pct_change(lease(delta_D=DELTA), lease_yield),
      None,
-     "Demand driven"),
 
     ("Occupancy",
      None,
      pct_change(mgmt(delta_occ=DELTA), mgmt_yield),
-     "Strong execution driver"),
 
     ("Management Fee %",
      None,
      pct_change(mgmt(delta_fee=DELTA), mgmt_yield),
-     "Direct profit drag"),
 
     ("Variable Cost %",
      None,
      pct_change(mgmt(delta_var=DELTA), mgmt_yield),
-     "Operating efficiency"),
 
     ("Fixed Cost / Dome",
      None,
      pct_change(mgmt(delta_fix=DELTA), mgmt_yield),
-     "Creates downside convexity"),
 
     ("Budget per Dome",
      pct_change(lease(delta_I=DELTA), lease_yield),
      pct_change(mgmt(delta_I=DELTA), mgmt_yield),
-     "Capital intensity"),
 
     ("Recapex %",
      pct_change(lease(delta_F=DELTA), lease_yield),
      pct_change(mgmt(delta_F=DELTA), mgmt_yield),
-     "Long-term cost drag"),
 ]
 
 df = pd.DataFrame(rows, columns=[
     "Input",
     "% Change in Yield – Lease (+10%)",
-    "% Change in Yield – Management (+10%)",
-    "Economic Meaning"
+    "% Change in Yield – Management (+10%)"
 ])
 
 df["% Change in Yield – Lease (+10%)"] = df["% Change in Yield – Lease (+10%)"].apply(
@@ -218,7 +209,6 @@ st.dataframe(df, use_container_width=True)
 
 st.caption(
     "Note: Fixed costs introduce true non-linearity. "
-    "Sensitivity increases sharply at low occupancy and stabilises as utilisation improves."
 )
 
 def mgmt_yield_at(
@@ -243,7 +233,7 @@ with st.expander("🔍 View Elasticity Curves (How sensitivity changes with leve
     st.markdown(
         """
 These curves show **how sensitive rental yield is at different operating levels, elasticity is delta yield %/delta input %**.
-They reveal **non-linear risk**, especially from fixed costs.
+They reveal **non-linear risk**.
 """
     )
 
@@ -317,6 +307,7 @@ They reveal **non-linear risk**, especially from fixed costs.
     st.caption(
         "Elasticity increase as fee% increase."
     )
+
 
 
 
