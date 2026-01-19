@@ -189,7 +189,7 @@ rows = [
 
     ("Recapex %",
      pct_change(lease(delta_F=DELTA), lease_yield),
-     pct_change(mgmt(delta_F=DELTA), mgmt_yield),
+     pct_change(mgmt(delta_F=DELTA), mgmt_yield)
 ]
 
 df = pd.DataFrame(rows, columns=[
@@ -307,6 +307,7 @@ They reveal **non-linear risk**.
     st.caption(
         "Elasticity increase as fee% increase."
     )
+
 
 
 
