@@ -36,10 +36,11 @@ st.sidebar.header("Management Contract Inputs")
 
 occupancy = st.sidebar.slider("Occupancy (%)", 10, 100, 50) / 100
 mgmt_fee = st.sidebar.slider("Management Fee (% of Revenue)", 5, 40, 20) / 100
-
-# NEW COST STRUCTURE (base case defaults)
-variable_cost = 0.10
-fixed_cost_per_dome = 15_000  # per month
+variable_cost = st.sidebar.slider("Variable Cost (% of Revenue)", 5, 30, 10) / 100
+fixed_cost_per_dome = st.sidebar.slider(
+    "Fixed Cost per Dome / Month (₹)",
+    5_000, 40_000, 15_000, step=1_000
+)
 
 Total_Budget = I * B * (1 + F)
 
@@ -50,12 +51,12 @@ lease_revenue = B * C * D * 12
 lease_yield = lease_revenue / Total_Budget * 100
 
 # -------------------------------------------------
-# Management Model (REVISED)
+# Management Model (with FIXED & VARIABLE COSTS)
 # -------------------------------------------------
 mgmt_revenue = B * C * 30 * 12 * occupancy
 
-variable_cost_amt = mgmt_revenue * variable_cost
 mgmt_fee_amt = mgmt_revenue * mgmt_fee
+variable_cost_amt = mgmt_revenue * variable_cost
 fixed_cost_amt = fixed_cost_per_dome * B * 12
 
 net_profit = mgmt_revenue - mgmt_fee_amt - variable_cost_amt - fixed_cost_amt
@@ -120,7 +121,7 @@ with c3:
 
 **Costs**
 - Management Fee ({int(mgmt_fee*100)}%): ₹ {format_inr(mgmt_fee_amt)}
-- Variable Cost (10%): ₹ {format_inr(variable_cost_amt)}
+- Variable Cost ({int(variable_cost*100)}%): ₹ {format_inr(variable_cost_amt)}
 - Fixed Cost: ₹ {format_inr(fixed_cost_amt)}
 
 **Net Profit**  
@@ -135,7 +136,7 @@ with c3:
 # 🔥 Sensitivity Summary (% CHANGE IN YIELD)
 # -------------------------------------------------
 st.divider()
-st.markdown("## 🔥 Sensitivity Summary (Non-linear Drivers Revealed)")
+st.markdown("## 🔥 Sensitivity Summary (Elasticity of Rental Yield)")
 st.caption("Shows % change in rental yield for a +10% change in each input.")
 
 DELTA = 0.10
@@ -150,10 +151,10 @@ def lease(delta_C=0, delta_D=0, delta_I=0, delta_F=0):
 
 def mgmt(delta_C=0, delta_occ=0, delta_fee=0, delta_var=0, delta_fix=0, delta_I=0, delta_F=0):
     rev = B * (C*(1+delta_C)) * 30 * 12 * (occupancy*(1+delta_occ))
-    var_cost = rev * (variable_cost*(1+delta_var))
     fee_cost = rev * (mgmt_fee*(1+delta_fee))
+    var_cost = rev * (variable_cost*(1+delta_var))
     fixed_cost = (fixed_cost_per_dome*(1+delta_fix)) * B * 12
-    profit = rev - var_cost - fee_cost - fixed_cost
+    profit = rev - fee_cost - var_cost - fixed_cost
     budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
     return profit / budget * 100
 
@@ -181,12 +182,12 @@ rows = [
     ("Variable Cost %",
      None,
      pct_change(mgmt(delta_var=DELTA), mgmt_yield),
-     "Cost efficiency"),
+     "Operating efficiency"),
 
     ("Fixed Cost / Dome",
      None,
      pct_change(mgmt(delta_fix=DELTA), mgmt_yield),
-     "Non-linear downside risk"),
+     "Creates downside convexity"),
 
     ("Budget per Dome",
      pct_change(lease(delta_I=DELTA), lease_yield),
@@ -216,6 +217,6 @@ df["% Change in Yield – Management (+10%)"] = df["% Change in Yield – Manage
 st.dataframe(df, use_container_width=True)
 
 st.caption(
-    "Note: Fixed costs introduce genuine non-linearity. "
-    "Sensitivity increases sharply at low occupancy and tapers at higher utilisation."
+    "Note: Fixed costs introduce true non-linearity. "
+    "Sensitivity increases sharply at low occupancy and stabilises as utilisation improves."
 )
