@@ -220,50 +220,6 @@ st.caption(
     "Note: Fixed costs introduce true non-linearity. "
     "Sensitivity increases sharply at low occupancy and stabilises as utilisation improves."
 )
-# -------------------------------------------------
-# 🔍 Elasticity Curves (Optional – Advanced Insight)
-# -------------------------------------------------
-st.divider()
-
-with st.expander("🔍 View Elasticity Curves (How sensitivity changes with levels)"):
-
-    st.markdown(
-        """
-These curves show **how rental yield sensitivity itself changes**  
-at different operating levels.  
-Useful to understand **non-linear risk**, not for forecasting.
-"""
-    )
-
-    DELTA_SMALL = 0.01  # 1% change for elasticity
-
-    def elasticity(new, base):
-        return (new - base) / base / DELTA_SMALL if base != 0 else 0
-
-    # -------------------------------------------------
-    # Occupancy Elasticity (Management Model)
-    # -------------------------------------------------
-    st.markdown("### Occupancy Elasticity (Management Contract)")
-
-    occ_levels = [x / 100 for x in range(20, 101, 5)]
-    occ_elast = []
-
-    for o in occ_levels:
-        base_yield = mgmt_yield
-        new_yield = mgmt(delta_occ=DELTA_SMALL)
-        occ_elast.append(elasticity(new_yield, base_yield))
-
-    df_occ = pd.DataFrame({
-        "Occupancy (%)": [int(o * 100) for o in occ_levels],
-        "Elasticity": occ_elast
-    }).set_index("Occupancy (%)")
-
-    st.line_chart(df_occ)
-
-    st.caption(
-        "At low occupancy, fixed costs dominate, making yield highly sensitive. "
-        "As occupancy improves, sensitivity reduces."
-    )
 
 def mgmt_yield_at(
     occ,
@@ -363,5 +319,6 @@ They reveal **non-linear risk**, especially from fixed costs.
     st.caption(
         "Fee sensitivity is strongest when margins are thin and tapers as profitability improves."
     )
+
 
 
