@@ -1,7 +1,5 @@
 import streamlit as st
 import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # -------------------------------------------------
 # Page Config
@@ -51,7 +49,7 @@ mgmt_fee = st.sidebar.slider("Management Fee (% of Revenue)", 5, 40, 20) / 100
 net_margin = gross_margin - mgmt_fee
 
 # -------------------------------------------------
-# Calculations
+# Base Calculations
 # -------------------------------------------------
 lease_revenue = B * C * D * 12
 lease_yield = lease_revenue / Total_Budget * 100
@@ -61,21 +59,20 @@ net_profit = mgmt_revenue * net_margin
 mgmt_yield = net_profit / Total_Budget * 100
 
 # -------------------------------------------------
-# Conditional Formatting Colors (RESTORED)
+# Conditional Formatting
 # -------------------------------------------------
 lease_bg = "#e6f4ea" if lease_yield > mgmt_yield else "#f4f4f4"
 mgmt_bg = "#e6f4ea" if mgmt_yield > lease_yield else "#f4f4f4"
 
 # -------------------------------------------------
-# Cards
+# Yield Cards
 # -------------------------------------------------
 st.markdown("## 📌 Contract Comparison")
 
-col1, col2, col3 = st.columns([1, 2, 2])
-col1.metric("Total Project Cost (₹)", format_inr(Total_Budget))
+c1, c2, c3 = st.columns([1, 2, 2])
+c1.metric("Total Project Cost (₹)", format_inr(Total_Budget))
 
-# Lease Card
-with col2:
+with c2:
     st.markdown(
         f"""
         <div style="background:{lease_bg}; padding:18px; border-radius:12px">
@@ -90,19 +87,13 @@ with col2:
     with st.expander("How is this calculated?"):
         st.markdown(
             f"""
-**Annual Rent**  
-`{B} × {C} × {D} × 12 = ₹ {format_inr(lease_revenue)}`
+Annual Rent = `{B} × {C} × {D} × 12`
 
-**Total Project Cost**  
-`{B} × {format_inr(I)} × (1 + {int(F*100)}%) = ₹ {format_inr(Total_Budget)}`
-
-**Rental Yield**  
-`{format_inr(lease_revenue)} ÷ {format_inr(Total_Budget)} = {lease_yield:.2f}%`
+Rental Yield = `{format_inr(lease_revenue)} ÷ {format_inr(Total_Budget)}`
 """
         )
 
-# Management Card
-with col3:
+with c3:
     st.markdown(
         f"""
         <div style="background:{mgmt_bg}; padding:18px; border-radius:12px">
@@ -117,104 +108,77 @@ with col3:
     with st.expander("How is this calculated?"):
         st.markdown(
             f"""
-**Annual Revenue**  
-`{B} × {C} × 30 × 12 × {int(occupancy*100)}% = ₹ {format_inr(mgmt_revenue)}`
+Annual Revenue = `{B} × {C} × 30 × 12 × {int(occupancy*100)}%`
 
-**Net Margin**  
-`{int(gross_margin*100)}% − {int(mgmt_fee*100)}% = {int(net_margin*100)}%`
+Net Margin = `{int(gross_margin*100)}% − {int(mgmt_fee*100)}%`
 
-**Net Profit**  
-`₹ {format_inr(mgmt_revenue)} × {int(net_margin*100)}% = ₹ {format_inr(net_profit)}`
-
-**Rental Yield**  
-`{format_inr(net_profit)} ÷ {format_inr(Total_Budget)} = {mgmt_yield:.2f}%`
+Rental Yield = `{format_inr(net_profit)} ÷ {format_inr(Total_Budget)}`
 """
         )
 
 # -------------------------------------------------
-# Sensitivity Analysis (UNCHANGED, STABLE)
+# 🔥 SENSITIVITY SUMMARY + DELTA CARDS
 # -------------------------------------------------
 st.divider()
-st.markdown("## 🔁 Sensitivity Analysis")
+st.markdown("## 🔥 Sensitivity Summary (What Really Matters)")
 
-# Lease
-st.markdown("### 📄 Lease Contract – Key Drivers")
+DELTA = 0.10  # 10% change
 
-D_range = np.arange(1, 31)
-C_range = np.arange(2000, 10001, 500)
-F_range = np.arange(0, 61, 5) / 100
-I_range = np.arange(5_00_000, 40_00_001, 5_00_000)
+def lease_yield_with(delta_C=0, delta_D=0):
+    rev = B * (C * (1 + delta_C)) * (D * (1 + delta_D)) * 12
+    return rev / Total_Budget * 100
 
-yield_D = [(B * C * d * 12) / Total_Budget * 100 for d in D_range]
-yield_C = [(B * c * D * 12) / Total_Budget * 100 for c in C_range]
-yield_F = [(B * C * D * 12) / (I * B * (1 + f)) * 100 for f in F_range]
-yield_I = [(B * C * D * 12) / (i * B * (1 + F)) * 100 for i in I_range]
+def mgmt_yield_with(delta_occ=0, delta_C=0, delta_margin=0):
+    rev = B * (C * (1 + delta_C)) * 30 * 12 * (occupancy * (1 + delta_occ))
+    margin = net_margin * (1 + delta_margin)
+    return (rev * margin) / Total_Budget * 100
 
-fig_lease = make_subplots(
-    rows=2, cols=2,
-    subplot_titles=[
-        "Yield vs Booking Days",
-        "Yield vs Revenue / Day",
-        "Yield vs Recapex %",
-        "Yield vs Budget per Dome"
-    ]
-)
+# Lease Sensitivities
+lease_sens = {
+    "Booking Days": lease_yield_with(delta_D=DELTA) - lease_yield,
+    "Revenue / Day": lease_yield_with(delta_C=DELTA) - lease_yield,
+}
 
-fig_lease.add_trace(go.Scatter(x=D_range, y=yield_D,
-    hovertemplate="Booking Days: %{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 1)
-fig_lease.add_trace(go.Scatter(x=C_range, y=yield_C,
-    hovertemplate="Revenue/Day: ₹%{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 2)
-fig_lease.add_trace(go.Scatter(x=F_range*100, y=yield_F,
-    hovertemplate="Recapex: %{x}%<br>Yield: %{y:.2f}%<extra></extra>"), 2, 1)
-fig_lease.add_trace(go.Scatter(x=I_range/100000, y=yield_I,
-    hovertemplate="Budget/Dome: ₹%{x} Lacs<br>Yield: %{y:.2f}%<extra></extra>"), 2, 2)
-
-fig_lease.update_yaxes(range=[0, 30])
-fig_lease.update_layout(height=600, showlegend=False)
-st.plotly_chart(fig_lease, use_container_width=True)
-
-# Management
-st.markdown("### 🏨 Management Contract – Key Drivers")
-
-occ_range = np.arange(20, 101, 5) / 100
-gross_range = np.arange(40, 81, 5) / 100
-fee_range = np.arange(5, 41, 5) / 100
-
-def mgmt_yield_calc(o, c, g, f, i):
-    return (B * c * 30 * 12 * o * (g - f)) / (i * B * (1 + F)) * 100
-
-y_occ = [mgmt_yield_calc(o, C, gross_margin, mgmt_fee, I) for o in occ_range]
-y_rev = [mgmt_yield_calc(occupancy, c, gross_margin, mgmt_fee, I) for c in C_range]
-y_gross = [mgmt_yield_calc(occupancy, C, g, mgmt_fee, I) for g in gross_range]
-y_fee = [mgmt_yield_calc(occupancy, C, gross_margin, f, I) for f in fee_range]
-
-fig_mgmt = make_subplots(
-    rows=2, cols=2,
-    subplot_titles=[
-        "Yield vs Occupancy %",
-        "Yield vs Revenue / Day",
-        "Yield vs Gross Margin %",
-        "Yield vs Management Fee %"
-    ]
-)
-
-fig_mgmt.add_trace(go.Scatter(x=occ_range*100, y=y_occ,
-    hovertemplate="Occupancy: %{x}%<br>Yield: %{y:.2f}%<extra></extra>"), 1, 1)
-fig_mgmt.add_trace(go.Scatter(x=C_range, y=y_rev,
-    hovertemplate="Revenue/Day: ₹%{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 2)
-fig_mgmt.add_trace(go.Scatter(x=gross_range*100, y=y_gross,
-    hovertemplate="Gross Margin: %{x}%<br>Yield: %{y:.2f}%<extra></extra>"), 2, 1)
-fig_mgmt.add_trace(go.Scatter(x=fee_range*100, y=y_fee,
-    hovertemplate="Mgmt Fee: %{x}%<br>Yield: %{y:.2f}%<extra></extra>"), 2, 2)
-
-fig_mgmt.update_yaxes(range=[0, 30])
-fig_mgmt.update_layout(height=600, showlegend=False)
-st.plotly_chart(fig_mgmt, use_container_width=True)
+# Management Sensitivities
+mgmt_sens = {
+    "Occupancy": mgmt_yield_with(delta_occ=DELTA) - mgmt_yield,
+    "Revenue / Day": mgmt_yield_with(delta_C=DELTA) - mgmt_yield,
+    "Net Margin": mgmt_yield_with(delta_margin=DELTA) - mgmt_yield,
+}
 
 # -------------------------------------------------
-# Disclaimer
+# Delta Cards
 # -------------------------------------------------
+st.markdown("### 📄 Lease Contract – Impact of +10% Change")
+
+for k, v in lease_sens.items():
+    st.metric(
+        label=k,
+        value=f"{v:+.2f}%",
+        help="Change in rental yield for a +10% increase in this input"
+    )
+
+st.markdown("### 🏨 Management Contract – Impact of +10% Change")
+
+for k, v in mgmt_sens.items():
+    st.metric(
+        label=k,
+        value=f"{v:+.2f}%",
+        help="Change in rental yield for a +10% increase in this input"
+    )
+
+# -------------------------------------------------
+# Interpretation
+# -------------------------------------------------
+st.info(
+    "💡 **How to use this:**\n"
+    "- Inputs with larger delta have greater impact on returns\n"
+    "- Lease model is most sensitive to demand (booking days)\n"
+    "- Management model is most sensitive to execution (occupancy & margins)\n"
+    "- Focus diligence on high-impact variables"
+)
+
 st.caption(
-    "Note: This model is for illustrative and comparative purposes only. "
-    "Actual returns depend on market conditions and execution."
+    "Note: Sensitivities are local and based on current assumptions. "
+    "They indicate direction and relative importance, not forecasts."
 )
