@@ -33,21 +33,32 @@ st.sidebar.header("Lease Contract Inputs")
 D = st.sidebar.slider("Booking Days / Month", 1, 30, 5)
 
 st.sidebar.header("Management Contract Inputs")
+
 occupancy = st.sidebar.slider("Occupancy (%)", 10, 100, 50) / 100
-gross_margin = st.sidebar.slider("Gross Profit Margin (%)", 30, 80, 60) / 100
 mgmt_fee = st.sidebar.slider("Management Fee (% of Revenue)", 5, 40, 20) / 100
 
-net_margin = gross_margin - mgmt_fee
+# NEW COST STRUCTURE (base case defaults)
+variable_cost = 0.10
+fixed_cost_per_dome = 15_000  # per month
+
 Total_Budget = I * B * (1 + F)
 
 # -------------------------------------------------
-# Base Calculations
+# Lease Model
 # -------------------------------------------------
 lease_revenue = B * C * D * 12
 lease_yield = lease_revenue / Total_Budget * 100
 
+# -------------------------------------------------
+# Management Model (REVISED)
+# -------------------------------------------------
 mgmt_revenue = B * C * 30 * 12 * occupancy
-net_profit = mgmt_revenue * net_margin
+
+variable_cost_amt = mgmt_revenue * variable_cost
+mgmt_fee_amt = mgmt_revenue * mgmt_fee
+fixed_cost_amt = fixed_cost_per_dome * B * 12
+
+net_profit = mgmt_revenue - mgmt_fee_amt - variable_cost_amt - fixed_cost_amt
 mgmt_yield = net_profit / Total_Budget * 100
 
 # -------------------------------------------------
@@ -57,13 +68,14 @@ lease_bg = "#e6f4ea" if lease_yield > mgmt_yield else "#f4f4f4"
 mgmt_bg = "#e6f4ea" if mgmt_yield > lease_yield else "#f4f4f4"
 
 # -------------------------------------------------
-# Yield Cards (UNCHANGED)
+# Yield Cards
 # -------------------------------------------------
 st.markdown("## 📌 Contract Comparison")
 
 c1, c2, c3 = st.columns([1, 2, 2])
 c1.metric("Total Project Cost (₹)", format_inr(Total_Budget))
 
+# Lease Card
 with c2:
     st.markdown(
         f"""
@@ -87,6 +99,7 @@ with c2:
 """
         )
 
+# Management Card
 with c3:
     st.markdown(
         f"""
@@ -105,8 +118,13 @@ with c3:
 **Annual Revenue**  
 `{B} × {C} × 30 × 12 × {int(occupancy*100)}% = ₹ {format_inr(mgmt_revenue)}`
 
+**Costs**
+- Management Fee ({int(mgmt_fee*100)}%): ₹ {format_inr(mgmt_fee_amt)}
+- Variable Cost (10%): ₹ {format_inr(variable_cost_amt)}
+- Fixed Cost: ₹ {format_inr(fixed_cost_amt)}
+
 **Net Profit**  
-`₹ {format_inr(mgmt_revenue)} × {int(net_margin*100)}% = ₹ {format_inr(net_profit)}`
+`Revenue − All Costs = ₹ {format_inr(net_profit)}`
 
 **Rental Yield**  
 `{format_inr(net_profit)} ÷ {format_inr(Total_Budget)} = {mgmt_yield:.2f}%`
@@ -114,10 +132,10 @@ with c3:
         )
 
 # -------------------------------------------------
-# 🔥 Sensitivity Summary – % CHANGE IN YIELD (FIXED)
+# 🔥 Sensitivity Summary (% CHANGE IN YIELD)
 # -------------------------------------------------
 st.divider()
-st.markdown("## 🔥 Sensitivity Summary (Elasticity of Rental Yield)")
+st.markdown("## 🔥 Sensitivity Summary (Non-linear Drivers Revealed)")
 st.caption("Shows % change in rental yield for a +10% change in each input.")
 
 DELTA = 0.10
@@ -130,54 +148,62 @@ def lease(delta_C=0, delta_D=0, delta_I=0, delta_F=0):
     budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
     return rev / budget * 100
 
-def mgmt(delta_C=0, delta_occ=0, delta_gm=0, delta_fee=0, delta_I=0, delta_F=0):
+def mgmt(delta_C=0, delta_occ=0, delta_fee=0, delta_var=0, delta_fix=0, delta_I=0, delta_F=0):
     rev = B * (C*(1+delta_C)) * 30 * 12 * (occupancy*(1+delta_occ))
-    margin = (gross_margin*(1+delta_gm)) - (mgmt_fee*(1+delta_fee))
+    var_cost = rev * (variable_cost*(1+delta_var))
+    fee_cost = rev * (mgmt_fee*(1+delta_fee))
+    fixed_cost = (fixed_cost_per_dome*(1+delta_fix)) * B * 12
+    profit = rev - var_cost - fee_cost - fixed_cost
     budget = (I*(1+delta_I)) * B * (1 + F*(1+delta_F))
-    return (rev * margin) / budget * 100
+    return profit / budget * 100
 
 rows = [
     ("Revenue per Day",
      pct_change(lease(delta_C=DELTA), lease_yield),
      pct_change(mgmt(delta_C=DELTA), mgmt_yield),
-     "Moves yield in same direction"),
+     "Scales revenue directly"),
 
     ("Booking Days",
      pct_change(lease(delta_D=DELTA), lease_yield),
      None,
-     "Strong demand driver"),
+     "Demand driven"),
 
     ("Occupancy",
      None,
      pct_change(mgmt(delta_occ=DELTA), mgmt_yield),
      "Strong execution driver"),
 
-    ("Gross Margin",
-     None,
-     pct_change(mgmt(delta_gm=DELTA), mgmt_yield),
-     "Very strong impact"),
-
-    ("Management Fee",
+    ("Management Fee %",
      None,
      pct_change(mgmt(delta_fee=DELTA), mgmt_yield),
-     "Higher fee reduces yield"),
+     "Direct profit drag"),
+
+    ("Variable Cost %",
+     None,
+     pct_change(mgmt(delta_var=DELTA), mgmt_yield),
+     "Cost efficiency"),
+
+    ("Fixed Cost / Dome",
+     None,
+     pct_change(mgmt(delta_fix=DELTA), mgmt_yield),
+     "Non-linear downside risk"),
 
     ("Budget per Dome",
      pct_change(lease(delta_I=DELTA), lease_yield),
      pct_change(mgmt(delta_I=DELTA), mgmt_yield),
-     "Capital heavy – lowers returns"),
+     "Capital intensity"),
 
     ("Recapex %",
      pct_change(lease(delta_F=DELTA), lease_yield),
      pct_change(mgmt(delta_F=DELTA), mgmt_yield),
-     "Gradual drag on returns")
+     "Long-term cost drag"),
 ]
 
 df = pd.DataFrame(rows, columns=[
     "Input",
     "% Change in Yield – Lease (+10%)",
     "% Change in Yield – Management (+10%)",
-    "Relationship (Plain Language)"
+    "Economic Meaning"
 ])
 
 df["% Change in Yield – Lease (+10%)"] = df["% Change in Yield – Lease (+10%)"].apply(
@@ -190,6 +216,6 @@ df["% Change in Yield – Management (+10%)"] = df["% Change in Yield – Manage
 st.dataframe(df, use_container_width=True)
 
 st.caption(
-    "Note: These are elasticities around current assumptions. "
-    "They show relative sensitivity, not absolute forecasts."
+    "Note: Fixed costs introduce genuine non-linearity. "
+    "Sensitivity increases sharply at low occupancy and tapers at higher utilisation."
 )
