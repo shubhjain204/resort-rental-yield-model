@@ -22,7 +22,7 @@ def format_inr(n):
     return rest + "," + last3
 
 # -------------------------------------------------
-# Sidebar – COMMON INPUTS
+# Sidebar – Common Inputs
 # -------------------------------------------------
 st.sidebar.header("Common Asset Assumptions")
 
@@ -34,13 +34,13 @@ I = st.sidebar.slider("Budget per Dome (₹)", 5_00_000, 40_00_000, 20_00_000, s
 Total_Budget = I * B * (1 + F)
 
 # -------------------------------------------------
-# Sidebar – LEASE INPUTS
+# Lease Inputs
 # -------------------------------------------------
 st.sidebar.header("Lease Contract Inputs")
 D = st.sidebar.slider("Booking Days / Month", 1, 30, 5)
 
 # -------------------------------------------------
-# Sidebar – MANAGEMENT INPUTS
+# Management Inputs
 # -------------------------------------------------
 st.sidebar.header("Management Contract Inputs")
 
@@ -51,7 +51,7 @@ mgmt_fee = st.sidebar.slider("Management Fee (% of Revenue)", 5, 40, 20) / 100
 net_margin = gross_margin - mgmt_fee
 
 # -------------------------------------------------
-# MODEL CALCULATIONS
+# Calculations
 # -------------------------------------------------
 lease_revenue = B * C * D * 12
 lease_yield = lease_revenue / Total_Budget * 100
@@ -61,55 +61,89 @@ net_profit = mgmt_revenue * net_margin
 mgmt_yield = net_profit / Total_Budget * 100
 
 # -------------------------------------------------
-# SUMMARY CARDS (UNCHANGED, WORKING)
+# Conditional Formatting Colors (RESTORED)
+# -------------------------------------------------
+lease_bg = "#e6f4ea" if lease_yield > mgmt_yield else "#f4f4f4"
+mgmt_bg = "#e6f4ea" if mgmt_yield > lease_yield else "#f4f4f4"
+
+# -------------------------------------------------
+# Cards
 # -------------------------------------------------
 st.markdown("## 📌 Contract Comparison")
 
-c1, c2, c3 = st.columns([1, 2, 2])
-c1.metric("Total Project Cost (₹)", format_inr(Total_Budget))
+col1, col2, col3 = st.columns([1, 2, 2])
+col1.metric("Total Project Cost (₹)", format_inr(Total_Budget))
 
-# Lease card
-with c2:
-    st.metric("Lease Contract Yield (%)", f"{lease_yield:.2f}")
+# Lease Card
+with col2:
+    st.markdown(
+        f"""
+        <div style="background:{lease_bg}; padding:18px; border-radius:12px">
+        <h4>📄 Lease Contract</h4>
+        <h2>{lease_yield:.2f}%</h2>
+        <p><b>Annual Rent:</b> ₹ {format_inr(lease_revenue)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     with st.expander("How is this calculated?"):
         st.markdown(
             f"""
-Annual Rent = {B} × {C} × {D} × 12 = ₹ {format_inr(lease_revenue)}
+**Annual Rent**  
+`{B} × {C} × {D} × 12 = ₹ {format_inr(lease_revenue)}`
 
-Rental Yield = {format_inr(lease_revenue)} ÷ {format_inr(Total_Budget)} = **{lease_yield:.2f}%**
+**Total Project Cost**  
+`{B} × {format_inr(I)} × (1 + {int(F*100)}%) = ₹ {format_inr(Total_Budget)}`
+
+**Rental Yield**  
+`{format_inr(lease_revenue)} ÷ {format_inr(Total_Budget)} = {lease_yield:.2f}%`
 """
         )
 
-# Management card
-with c3:
-    st.metric("Management Contract Yield (%)", f"{mgmt_yield:.2f}")
+# Management Card
+with col3:
+    st.markdown(
+        f"""
+        <div style="background:{mgmt_bg}; padding:18px; border-radius:12px">
+        <h4>🏨 Management Contract</h4>
+        <h2>{mgmt_yield:.2f}%</h2>
+        <p><b>Net Annual Profit:</b> ₹ {format_inr(net_profit)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     with st.expander("How is this calculated?"):
         st.markdown(
             f"""
-Annual Revenue = {B} × {C} × 30 × 12 × {int(occupancy*100)}% = ₹ {format_inr(mgmt_revenue)}
+**Annual Revenue**  
+`{B} × {C} × 30 × 12 × {int(occupancy*100)}% = ₹ {format_inr(mgmt_revenue)}`
 
-Net Margin = {int(gross_margin*100)}% − {int(mgmt_fee*100)}% = {int(net_margin*100)}%
+**Net Margin**  
+`{int(gross_margin*100)}% − {int(mgmt_fee*100)}% = {int(net_margin*100)}%`
 
-Net Profit = ₹ {format_inr(net_profit)}
+**Net Profit**  
+`₹ {format_inr(mgmt_revenue)} × {int(net_margin*100)}% = ₹ {format_inr(net_profit)}`
 
-Rental Yield = {format_inr(net_profit)} ÷ {format_inr(Total_Budget)} = **{mgmt_yield:.2f}%**
+**Rental Yield**  
+`{format_inr(net_profit)} ÷ {format_inr(Total_Budget)} = {mgmt_yield:.2f}%`
 """
         )
 
+# -------------------------------------------------
+# Sensitivity Analysis (UNCHANGED, STABLE)
+# -------------------------------------------------
 st.divider()
-
-# -------------------------------------------------
-# 🔁 SENSITIVITY ANALYSIS — FULL RESTORED VERSION
-# -------------------------------------------------
 st.markdown("## 🔁 Sensitivity Analysis")
 
-# ---------------- LEASE SMALL MULTIPLES ----------------
+# Lease
 st.markdown("### 📄 Lease Contract – Key Drivers")
 
 D_range = np.arange(1, 31)
 C_range = np.arange(2000, 10001, 500)
-I_range = np.arange(5_00_000, 40_00_001, 5_00_000)
 F_range = np.arange(0, 61, 5) / 100
+I_range = np.arange(5_00_000, 40_00_001, 5_00_000)
 
 yield_D = [(B * C * d * 12) / Total_Budget * 100 for d in D_range]
 yield_C = [(B * c * D * 12) / Total_Budget * 100 for c in C_range]
@@ -129,17 +163,17 @@ fig_lease = make_subplots(
 fig_lease.add_trace(go.Scatter(x=D_range, y=yield_D,
     hovertemplate="Booking Days: %{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 1)
 fig_lease.add_trace(go.Scatter(x=C_range, y=yield_C,
-    hovertemplate="Revenue: ₹%{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 2)
+    hovertemplate="Revenue/Day: ₹%{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 2)
 fig_lease.add_trace(go.Scatter(x=F_range*100, y=yield_F,
     hovertemplate="Recapex: %{x}%<br>Yield: %{y:.2f}%<extra></extra>"), 2, 1)
 fig_lease.add_trace(go.Scatter(x=I_range/100000, y=yield_I,
-    hovertemplate="Budget: ₹%{x} Lacs<br>Yield: %{y:.2f}%<extra></extra>"), 2, 2)
+    hovertemplate="Budget/Dome: ₹%{x} Lacs<br>Yield: %{y:.2f}%<extra></extra>"), 2, 2)
 
 fig_lease.update_yaxes(range=[0, 30])
 fig_lease.update_layout(height=600, showlegend=False)
 st.plotly_chart(fig_lease, use_container_width=True)
 
-# ---------------- MANAGEMENT SMALL MULTIPLES ----------------
+# Management
 st.markdown("### 🏨 Management Contract – Key Drivers")
 
 occ_range = np.arange(20, 101, 5) / 100
@@ -167,7 +201,7 @@ fig_mgmt = make_subplots(
 fig_mgmt.add_trace(go.Scatter(x=occ_range*100, y=y_occ,
     hovertemplate="Occupancy: %{x}%<br>Yield: %{y:.2f}%<extra></extra>"), 1, 1)
 fig_mgmt.add_trace(go.Scatter(x=C_range, y=y_rev,
-    hovertemplate="Revenue: ₹%{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 2)
+    hovertemplate="Revenue/Day: ₹%{x}<br>Yield: %{y:.2f}%<extra></extra>"), 1, 2)
 fig_mgmt.add_trace(go.Scatter(x=gross_range*100, y=y_gross,
     hovertemplate="Gross Margin: %{x}%<br>Yield: %{y:.2f}%<extra></extra>"), 2, 1)
 fig_mgmt.add_trace(go.Scatter(x=fee_range*100, y=y_fee,
@@ -178,7 +212,7 @@ fig_mgmt.update_layout(height=600, showlegend=False)
 st.plotly_chart(fig_mgmt, use_container_width=True)
 
 # -------------------------------------------------
-# DISCLAIMER
+# Disclaimer
 # -------------------------------------------------
 st.caption(
     "Note: This model is for illustrative and comparative purposes only. "
